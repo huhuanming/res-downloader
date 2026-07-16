@@ -51,6 +51,25 @@ export namespace appType {
         OtherData: { [key: string]: string }
     }
 
+    interface ApiInfo {
+        Id: string
+        Url: string
+        UrlSign: string
+        Method: string
+        Domain: string
+        StatusCode: number
+        ContentType: string
+        Size: number
+        MediaCount: number
+        MediaUrls: string[]
+        Body: string
+        BodyTruncated: boolean
+        RequestHeaders: string
+        RequestBody: string
+        RequestBodyTruncated: boolean
+        CreatedAt: string
+    }
+
     interface DownloadProgress {
         Id: string
         SavePath: string

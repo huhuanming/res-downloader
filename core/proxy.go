@@ -45,6 +45,12 @@ func init() {
 		MarkMedia: func(key string) {
 			resourceOnce.markMedia(key)
 		},
+		RegisterSource: func(mediaURL string, source shared.SourceInfo) {
+			resourceOnce.registerSource(mediaURL, source)
+		},
+		FindSource: func(mediaURL string) (shared.SourceInfo, bool) {
+			return resourceOnce.findSource(mediaURL)
+		},
 		GetConfig: func(key string) interface{} {
 			return globalConfig.getConfig(key)
 		},

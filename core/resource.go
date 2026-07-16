@@ -23,6 +23,7 @@ type WxFileDecodeResult struct {
 
 type Resource struct {
 	mediaMark  sync.Map
+	sourceMap  sync.Map
 	tasks      sync.Map
 	resType    map[string]bool
 	resTypeMux sync.RWMutex
@@ -59,6 +60,58 @@ func (r *Resource) markMedia(key string) {
 	r.mediaMark.Store(key, true)
 }
 
+func (r *Resource) sourceKey(mediaURL string) string {
+	return shared.Md5(r.normalizeMediaURL(mediaURL))
+}
+
+func (r *Resource) normalizeMediaURL(mediaURL string) string {
+	mediaURL = strings.TrimSpace(mediaURL)
+	mediaURL = strings.Trim(mediaURL, `"'`)
+	mediaURL = strings.ReplaceAll(mediaURL, `\/`, `/`)
+	if !strings.HasPrefix(strings.ToLower(mediaURL), "http") {
+		if decoded, err := url.QueryUnescape(mediaURL); err == nil && strings.HasPrefix(strings.ToLower(decoded), "http") {
+			mediaURL = decoded
+		}
+	}
+
+	parsedURL, err := url.Parse(mediaURL)
+	if err != nil || parsedURL.Scheme == "" || parsedURL.Host == "" {
+		return mediaURL
+	}
+
+	parsedURL.Scheme = strings.ToLower(parsedURL.Scheme)
+	hostname := strings.ToLower(parsedURL.Hostname())
+	port := parsedURL.Port()
+	if port == "" || (parsedURL.Scheme == "https" && port == "443") || (parsedURL.Scheme == "http" && port == "80") {
+		parsedURL.Host = hostname
+	} else if strings.Contains(hostname, ":") {
+		parsedURL.Host = "[" + hostname + "]:" + port
+	} else {
+		parsedURL.Host = hostname + ":" + port
+	}
+	parsedURL.Fragment = ""
+	return parsedURL.String()
+}
+
+func (r *Resource) registerSource(mediaURL string, source shared.SourceInfo) {
+	if mediaURL == "" || source.Url == "" {
+		return
+	}
+	r.sourceMap.Store(r.sourceKey(mediaURL), source)
+}
+
+func (r *Resource) findSource(mediaURL string) (shared.SourceInfo, bool) {
+	if mediaURL == "" {
+		return shared.SourceInfo{}, false
+	}
+
+	if source, ok := r.sourceMap.Load(r.sourceKey(mediaURL)); ok {
+		return source.(shared.SourceInfo), true
+	}
+
+	return shared.SourceInfo{}, false
+}
+
 func (r *Resource) getResType(key string) (bool, bool) {
 	r.resTypeMux.RLock()
 	value, ok := r.resType[key]
@@ -82,6 +135,7 @@ func (r *Resource) setResType(n []string) {
 
 func (r *Resource) clear() {
 	r.mediaMark.Clear()
+	r.sourceMap.Clear()
 }
 
 func (r *Resource) delete(sign string) {
